@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Panel del Vendedor - Reentraste</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      display: flex;
+      height: 100vh;
+    }
+    .sidebar {
+      width: 220px;
+      background: #111;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+    }
+    .sidebar h2 {
+      font-size: 20px;
+      margin-bottom: 30px;
+    }
+    .sidebar button {
+      background: none;
+      border: none;
+      color: white;
+      text-align: left;
+      padding: 10px;
+      cursor: pointer;
+      width: 100%;
+    }
+    .sidebar button:hover {
+      background: #333;
+    }
+    .content {
+      flex-grow: 1;
+      padding: 30px;
+      overflow-y: auto;
+    }
+    .hidden {
+      display: none;
+    }
+    canvas {
+      max-width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <h2>Reentraste</h2>
+    <button onclick="mostrarSeccion('dashboard')">Dashboard</button>
+    <button onclick="mostrarSeccion('publicar')">Publicar Entrada</button>
+    <button onclick="mostrarSeccion('mias')">Mis Entradas</button>
+    <button onclick="logout()">Cerrar sesión</button>
+  </div>
+
+  <div class="content">
+    <!-- DASHBOARD -->
+    <div id="dashboard">
+      <h1>Resumen de ingresos</h1>
+      <label for="rango">Rango:</label>
+      <select id="rango">
+        <option value="7">Últimos 7 días</option>
+        <option value="30">Últimos 30 días</option>
+        <option value="90">Últimos 3 meses</option>
+      </select>
+      <canvas id="graficoIngresos" height="250"></canvas>
+    </div>
+
+    <!-- PUBLICAR -->
+    <div id="publicar" class="hidden">
+      <h1>Publicar nueva entrada</h1>
+      <form id="formPublicar" enctype="multipart/form-data">
+        <label>Evento:
+          <select name="event_id" id="eventSelect" required></select>
+        </label><br><br>
+        <label>Precio: <input type="number" name="precio" required></label><br><br>
+        <label>Archivo (QR): <input type="file" name="archivo" required></label><br><br>
+        <button type="submit">Publicar</button>
+      </form>
+    </div>
+
+    <!-- MIS ENTRADAS -->
+    <div id="mias" class="hidden">
+      <h1>Mis entradas activas</h1>
+      <div id="listaMias"></div>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = 'login.html';
+
+    function logout() {
+      localStorage.removeItem('token');
+      alert('Sesión cerrada');
+      window.location.href = 'login.html';
+    }
+
+    function mostrarSeccion(id) {
+      ['dashboard', 'publicar', 'mias'].forEach(s => {
+        document.getElementById(s).classList.add('hidden');
+      });
+      document.getElementById(id).classList.remove('hidden');
+      if (id === 'dashboard') cargarGraficoIngresos();
+      if (id === 'publicar') cargarEventos();
+      if (id === 'mias') cargarEntradasMias();
+    }
+
+    // Dashboard - gráfico
+    document.getElementById('rango').addEventListener('change', e => {
+      cargarGraficoIngresos(e.target.value);
+    });
+
+    async function cargarGraficoIngresos(dias = 7) {
+      const res = await fetch(`http://localhost:3002/api/ingresos?dias=${dias}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!data.success) return;
+
+      const ctx = document.getElementById('graficoIngresos').getContext('2d');
+      if (window.miGrafico) window.miGrafico.destroy();
+
+      window.miGrafico = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.labels,
+          datasets: [{
+            label: 'Ingresos ($)',
+            data: data.valores,
+            backgroundColor: 'rgba(0, 123, 255, 0.6)'
+          }]
+        },
+        options: {
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    // Publicar entrada
+    async function cargarEventos() {
+      const res = await fetch('http://localhost:3002/api/events/todos');
+      const data = await res.json();
+      const select = document.getElementById('eventSelect');
+      select.innerHTML = '';
+      data.events.forEach(e => {
+        const opt = document.createElement('option');
+        opt.value = e.id;
+        opt.textContent = `${e.name} - ${new Date(e.date).toLocaleDateString()}`;
+        select.appendChild(opt);
+      });
+    }
+
+    document.getElementById('formPublicar').onsubmit = async e => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const res = await fetch('http://localhost:3002/api/tickets/nuevo', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+      const data = await res.json();
+      alert(data.success ? 'Entrada publicada' : 'Error al publicar');
+    };
+
+    // Mis entradas activas
+    async function cargarEntradasMias() {
+      const res = await fetch('http://localhost:3002/api/tickets/mias', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      const contenedor = document.getElementById('listaMias');
+      contenedor.innerHTML = '';
+      if (!data.success || data.tickets.length === 0) {
+        contenedor.innerHTML = '<p>No tenés entradas publicadas.</p>';
+        return;
+      }
+      data.tickets.forEach(t => {
+        const div = document.createElement('div');
+        div.innerHTML = `
+          <strong>${t.evento}</strong><br>
+          Fecha: ${new Date(t.date).toLocaleString()}<br>
+          Precio: $${t.precio}<br>
+          <a href="/uploads/${t.archivo}" target="_blank">Ver archivo</a><br>
+          <button onclick="eliminarEntrada(${t.id})">Eliminar</button>
+          <hr>
+        `;
+        contenedor.appendChild(div);
+      });
+    }
+
+    async function eliminarEntrada(id) {
+      if (!confirm('¿Eliminar entrada?')) return;
+      const res = await fetch(`http://localhost:3002/api/tickets/eliminar/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      alert(data.success ? 'Entrada eliminada' : 'Error');
+      cargarEntradasMias();
+    }
+
+    mostrarSeccion('dashboard'); // Carga inicial
+  </script>
+</body>
+</html>

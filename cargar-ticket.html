@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Cargar Entrada</title>
+</head>
+<body>
+  <h1>Publicar una Entrada</h1>
+  <form id="ticketForm" enctype="multipart/form-data">
+    <label>Seleccionar evento:</label><br>
+    <select name="event_id" id="eventSelect" required>
+      <option value="">Cargando eventos...</option>
+    </select><br><br>
+
+    <label>Precio: <input type="number" name="precio" required></label><br>
+    <label>Archivo (imagen del QR): <input type="file" name="archivo" accept="image/*"></label><br>
+    <button type="submit">Publicar Entrada</button>
+  </form>
+
+  <script>
+    // Cargar eventos en el select
+    async function cargarEventos() {
+      const res = await fetch('http://localhost:3002/api/events/todos');
+      const data = await res.json();
+      const select = document.getElementById('eventSelect');
+      select.innerHTML = '<option value="">Seleccionar evento</option>';
+
+      if (data.success) {
+        data.events.forEach(evento => {
+          const option = document.createElement('option');
+          option.value = evento.id;
+          option.textContent = `${evento.name} - ${new Date(evento.date).toLocaleDateString()} (${evento.location})`;
+          select.appendChild(option);
+        });
+      } else {
+        select.innerHTML = '<option value="">No se pudieron cargar eventos</option>';
+      }
+    }
+
+    cargarEventos();
+
+    // Enviar entrada
+    document.getElementById('ticketForm').onsubmit = async e => {
+      e.preventDefault();
+      const token = localStorage.getItem('token');
+      if (!token) return alert('Debes iniciar sesión');
+
+      const formData = new FormData(e.target);
+
+      const res = await fetch('http://localhost:3002/api/tickets/nuevo', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        alert('Entrada publicada con éxito');
+        window.location.href = 'index.html';
+      } else {
+        alert('Error: ' + data.error);
+      }
+    };
+  </script>
+</body>
+</html>

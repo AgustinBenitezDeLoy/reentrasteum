@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Registro - Reentraste</title>
+</head>
+<body>
+  <h1>Registro</h1>
+  <form id="registerForm" enctype="multipart/form-data">
+    <label>Nombre: <input type="text" name="nombre" required></label><br>
+    <label>Email: <input type="email" name="email" required></label><br>
+    <label>Contraseña: <input type="password" name="password" required></label><br>
+    <label>Cédula Frente: <input type="file" name="cedulaFrente" accept="image/*" required></label><br>
+    <label>Cédula Dorso: <input type="file" name="cedulaDorso" accept="image/*" required></label><br>
+    <button type="submit">Registrarme</button>
+  </form>
+
+  <script>
+    document.getElementById('registerForm').onsubmit = async e => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Registro exitoso');
+        window.location.href = 'login.html';
+      } else {
+        alert('Error: ' + data.error);
+      }
+    };
+  </script>
+</body>
+</html>

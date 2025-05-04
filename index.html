@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Inicio - Reentraste</title>
+</head>
+<body>
+  <h1>Bienvenido a Reentraste</h1>
+  <p>Tu sesión está activa si llegaste acá después del login.</p>
+  <button onclick="logout()">Cerrar sesión</button>
+
+  <h2>Eventos disponibles</h2>
+  <div id="listaEventos"></div>
+
+  <h2>Reventas del evento seleccionado</h2>
+  <div id="listaEntradas"></div>
+
+  <script>
+    // Redirigir si no hay sesión
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = 'login.html';
+
+    function logout() {
+      localStorage.removeItem('token');
+      alert('Sesión cerrada');
+      window.location.href = 'login.html';
+    }
+
+    // Cargar eventos disponibles
+    async function cargarEventos() {
+      const res = await fetch('http://localhost:3002/api/events/todos');
+      const data = await res.json();
+      const contenedor = document.getElementById('listaEventos');
+
+      if (!data.success) {
+        contenedor.innerHTML = '<p>Error al cargar eventos.</p>';
+        return;
+      }
+
+      contenedor.innerHTML = '';
+      data.events.forEach(evento => {
+        const div = document.createElement('div');
+        div.innerHTML = `
+          <strong>${evento.name}</strong> - ${new Date(evento.date).toLocaleDateString()} (${evento.location})
+          <button onclick="verReventas(${evento.id})">Ver reventas</button>
+          <hr>
+        `;
+        contenedor.appendChild(div);
+      });
+    }
+
+    // Ver entradas (tickets) para un evento específico
+    async function verReventas(eventId) {
+      const res = await fetch(`http://localhost:3002/api/tickets/por-evento/${eventId}`);
+      const data = await res.json();
+      const contenedor = document.getElementById('listaEntradas');
+      contenedor.innerHTML = '';
+
+      if (!data.success || data.tickets.length === 0) {
+        contenedor.innerHTML = '<p>No hay entradas para este evento.</p>';
+        return;
+      }
+
+      data.tickets.forEach(ticket => {
+        const div = document.createElement('div');
+        div.innerHTML = `
+          <strong>Vendedor:</strong> ${ticket.vendedor}<br>
+          <strong>Precio:</strong> $${ticket.precio}<br>
+          <hr>
+        `;
+        contenedor.appendChild(div);
+      });
+    }
+
+    cargarEventos();
+  </script>
+</body>
+</html>

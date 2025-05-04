@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mis Compras - Reentraste</title>
+</head>
+<body>
+  <h1>Entradas compradas</h1>
+  <button onclick="logout()">Cerrar sesión</button>
+
+  <div id="comprasContainer"></div>
+
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = 'login.html';
+    }
+
+    function logout() {
+      localStorage.removeItem('token');
+      alert('Sesión cerrada');
+      window.location.href = 'login.html';
+    }
+
+    async function cargarCompras() {
+      try {
+        const res = await fetch('http://localhost:3002/api/compras/mias', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        const contenedor = document.getElementById('comprasContainer');
+
+        if (!data.success || data.tickets.length === 0) {
+          contenedor.innerHTML = '<p>No has comprado entradas aún.</p>';
+          return;
+        }
+
+        data.tickets.forEach(ticket => {
+          const div = document.createElement('div');
+          div.innerHTML = `
+            <hr>
+            <strong>${ticket.evento}</strong><br>
+            Fecha: ${new Date(ticket.date).toLocaleDateString()} - ${ticket.location}<br>
+            Precio: $${ticket.precio}<br>
+            ${ticket.archivo ? `<a href="/uploads/${ticket.archivo}" target="_blank">Ver QR</a><br>` : ''}
+          `;
+          contenedor.appendChild(div);
+        });
+      } catch (error) {
+        console.error('Error al cargar compras:', error);
+        document.getElementById('comprasContainer').innerText = 'Error al obtener tus compras.';
+      }
+    }
+
+    cargarCompras();
+  </script>
+</body>
+</html>

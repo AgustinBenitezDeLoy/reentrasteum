@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Mis Reventas - Reentraste</title>
+</head>
+<body>
+  <h1>Mis Entradas Publicadas</h1>
+  <button onclick="logout()">Cerrar sesión</button>
+
+  <div id="misEntradas"></div>
+
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = 'login.html';
+    }
+
+    function logout() {
+      localStorage.removeItem('token');
+      alert('Sesión cerrada');
+      window.location.href = 'login.html';
+    }
+
+    async function cargarMisEntradas() {
+      const res = await fetch('http://localhost:3002/api/tickets/mias', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      const contenedor = document.getElementById('misEntradas');
+
+      if (!data.success || data.tickets.length === 0) {
+        contenedor.innerHTML = '<p>No has publicado entradas aún.</p>';
+        return;
+      }
+
+      data.tickets.forEach(ticket => {
+        const div = document.createElement('div');
+        div.innerHTML = `
+          <hr>
+          <strong>${ticket.evento}</strong> - ${new Date(ticket.date).toLocaleDateString()} (${ticket.location})<br>
+          Precio: $${ticket.precio}<br>
+          ${ticket.archivo ? `<a href="/uploads/${ticket.archivo}" target="_blank">Ver QR</a><br>` : ''}
+          <button onclick="eliminarEntrada(${ticket.id})">Eliminar</button>
+        `;
+        contenedor.appendChild(div);
+      });
+    }
+
+    async function eliminarEntrada(id) {
+      if (!confirm('¿Estás seguro de que querés eliminar esta entrada?')) return;
+
+      const res = await fetch(`http://localhost:3002/api/tickets/eliminar/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        alert('Entrada eliminada.');
+        location.reload();
+      } else {
+        alert('Error: ' + data.error);
+      }
+    }
+
+    cargarMisEntradas();
+  </script>
+</body>
+</html>
